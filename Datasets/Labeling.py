@@ -1,35 +1,41 @@
 import json
-import requests
 import chinese_converter
 
-NUMBER = 1000
-PSID = {
-    'A++': 27099781,  # 典範級
-    'A+': 27099788,  # 甲級
-    'A': 27099794,  # 優良級
-    'B': 27099795,  # 乙級
-    'C': 27099797,  # 丙級
-    'D': 27099799,  # 初級
-    'E': 27099802,  # 小作品級
-    'N': 27099800  # 未評級
-}
+SOURCE = 'samples.json'
+TARGET = 'labels.json'
+
+
+def is_float(string):
+    try:
+        float(string)
+        return True
+    except ValueError:
+        return False
 
 
 if __name__ == '__main__':
-    TITLES = dict()
-    S = requests.Session()
-    URL = "https://petscan.wmflabs.org"
-    for rating in PSID:
-        print(rating)
-        PARAMS = {
-            "psid": PSID[rating],
-            "format": "json",
-            'doit': ""
-        }
-        R = S.get(url=URL, params=PARAMS)
-        DATA = R.json()['*'][0]['a']['*']
-        TITLE_LIST = list(map(lambda item: chinese_converter.to_traditional(item['title']), DATA))
-        TITLES[rating] = TITLE_LIST
+    with open(SOURCE, 'r', encoding='utf-8') as source_file, open(TARGET, 'r', encoding='utf-8') as target_file:
+        data = json.load(source_file)
+        labels = json.load(target_file)
 
-    with open('titles.json', 'w', encoding='utf-8') as file:
-        json.dump(TITLES, file, ensure_ascii=False, indent=4)
+    if labels:
+        titles = list(map(lambda x: x['title'], labels))
+    else:
+        titles = []
+
+    print("Rate titles by a number between 0 and 1. The larger the score is, the more familiar you are with the topic. "
+          "Input any other string to exit.")
+
+    for sample in data:
+        if sample in titles:
+            continue
+        response = input(f'{chinese_converter.to_traditional(sample)}：')
+        if is_float(response.strip()) and 0 <= float(response) <= 1:
+            new_label = {'title': sample, 'score': float(response)}
+            labels.append(new_label)
+        else:
+            print(f"Exit. There are {len(labels)} labelled titles now.")
+            break
+
+    with open(TARGET, 'w', encoding='utf-8') as target_file:
+        json.dump(labels, target_file, ensure_ascii=False, indent=4)
